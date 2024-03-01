@@ -1,13 +1,40 @@
 "use client";
 
-import Link from "next/link";
 import type { NextPage } from "next";
-import { useAccount } from "wagmi";
-import { BugAntIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
+import { useAccount, useSignMessage } from "wagmi";
 import { Address } from "~~/components/scaffold-eth";
+import { getParsedError, notification } from "~~/utils/scaffold-eth";
 
 const Home: NextPage = () => {
   const { address: connectedAddress } = useAccount();
+
+  const { signMessageAsync, isLoading: isSigningSimpleMessage } = useSignMessage();
+
+  const handleSimpleMessageSign = async () => {
+    try {
+      const message = "SE-2";
+      const signature = await signMessageAsync({
+        message: message,
+      });
+      const response = await fetch("/api/verifySimpleMessage", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ message, signature, signer: connectedAddress }),
+      });
+
+      if (response.ok) {
+        const data = (await response.json()) as { verified: boolean };
+        notification.success(data.verified ? "Message Verified" : "Message Not Verified");
+      } else {
+        notification.error("Failed to verify message");
+      }
+    } catch (e) {
+      const parsedErrorMessage = getParsedError(e);
+      notification.error(parsedErrorMessage);
+    }
+  };
 
   return (
     <>
@@ -27,41 +54,10 @@ const Home: NextPage = () => {
               packages/nextjs/app/page.tsx
             </code>
           </p>
-          <p className="text-center text-lg">
-            Edit your smart contract{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              YourContract.sol
-            </code>{" "}
-            in{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              packages/hardhat/contracts
-            </code>
-          </p>
-        </div>
-
-        <div className="flex-grow bg-base-300 w-full mt-16 px-8 py-12">
-          <div className="flex justify-center items-center gap-12 flex-col sm:flex-row">
-            <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
-              <BugAntIcon className="h-8 w-8 fill-secondary" />
-              <p>
-                Tinker with your smart contract using the{" "}
-                <Link href="/debug" passHref className="link">
-                  Debug Contracts
-                </Link>{" "}
-                tab.
-              </p>
-            </div>
-            <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
-              <MagnifyingGlassIcon className="h-8 w-8 fill-secondary" />
-              <p>
-                Explore your local transactions with the{" "}
-                <Link href="/blockexplorer" passHref className="link">
-                  Block Explorer
-                </Link>{" "}
-                tab.
-              </p>
-            </div>
-          </div>
+          <button className="btn btn-primary" disabled={isSigningSimpleMessage} onClick={handleSimpleMessageSign}>
+            {isSigningSimpleMessage && <span className="loading loading-spinner"></span>}
+            Sign Simple Message
+          </button>
         </div>
       </div>
     </>
